@@ -1,0 +1,292 @@
+# =============================================================================
+# leg_config.yaml  --  single source of truth for the humanoid leg load calculator
+# =============================================================================
+# Units: SI (m, kg, N, N*m, kg*m^2, Pa) everywhere, except keys that say _deg (degrees).
+#
+# PROVENANCE TAGS.  A value that is a guess, an estimate read off a picture, or typical-human data carries a
+# trailing "# PLACEHOLDER" tag on its own line.  The UI shows a red banner while any tagged line remains, and every
+# result is only as good as those lines.  When you replace a value with a real one, DELETE the tag on that line.
+# Untagged values come from the user's drawings / dimensions or from the actuator datasheets ("(given)", "(datasheet)").
+#
+# -----------------------------------------------------------------------------
+# MODEL: one LEFT leg, FAR hip layout, joints J1..J6 numbered as in the design drawings
+# -----------------------------------------------------------------------------
+#   World / pelvis frame   x forward, y left, z up.  Origin = pelvis centre line at the height and fore-aft position
+#                          of the hip-pitch axis (J1).  The left leg's joints sit at y = +0.1375 m (hip width 275 mm).
+#                          Gravity is -z.  The pelvis is the base: its pitch / roll inputs tilt the whole leg frame.
+#   Zero pose              leg straight down (-z), foot flat, toe toward +x.
+#   Joint i frame          parent link frame, shifted by origin.xyz, rotated by origin.rpy_deg, then rotated by q about
+#                          `axis` (right-hand rule, axis given in the joint frame).
+#   Link i                 the rigid body DISTAL to joint i; its frame is joint i's frame after the rotation.  Its `com`,
+#                          `point_masses`, `beam` and the next joint's origin are all given in this frame.
+#                          `com: center` = half-way along the link's beam.  The beam (the structural member that gets a
+#                          section / stress) runs joint origin -> next joint origin (last link: foot.beam_end) unless a
+#                          `beam: {from, to}` override is given.
+#   Mass bookkeeping       a link's `mass` is its structure at `com`; every actuator / rod is a lumped `point_masses`
+#                          entry at its real position.  Link inertia defaults to a thin rod (see leg/dynamics.py).
+#
+#   Joint   Name              Axis in joint frame   Positive direction        Range (deg)
+#   J1      hip_flexion       [0,-1,0]              flexion                   -30 .. 130
+#   J2      hip_abduction     [1,0,0]               abduction (foot to +y)    -20 .. 20
+#   J3      hip_rotation      [0,0,1]               rotation about the leg    -45 .. 45
+#   J4      knee              [0,1,0]               flexion                   0 .. 130
+#   J5      ankle_flexion     [0,-1,0]              dorsiflexion (toe up)     -45 .. 30
+#   J6      ankle_inversion   [1,0,0]               roll, foot toward +y      -30 .. 30
+#   The design drawings label hip flexion negative and plantarflexion positive; the ranges here are converted so that a
+#   squat has three positive angles.  NOT modelled: foot yaw (15 deg abduction / 35 deg adduction): there is no ankle-yaw joint.
+#
+# Torque sign (everywhere): the torque the ACTUATOR applies to the distal link about the world-resolved joint axis to hold
+# the pose (see leg/statics.py).  Compare magnitudes; the sign only gives direction.
+#
+# WHAT IS (NOT) MODELLED AT THE HIP: the hip box, the two hip-pitch actuator bodies (COM 34 mm either side of the box
+# centre) and the box structure are PELVIS-SIDE (the base).  They do not move with the leg, so they add no joint torque or
+# link load.  What matters is where J1's output flange is and the lateral offset J1 -> J2 (the pitch actuator sits out of
+# line with the leg), which is in the origins below.  The moving bracket from the pitch output to the abduction actuator
+# is 0.336 kg (hip_flexion_bracket).
+#
+# STRESS / SAFETY FACTOR is skipped for links without a `section`.  Add one under a link, as a single section
+#     section: {kind: parallel_plates, thickness: 0.004, depth: 0.040, gap: 0.030,
+#               yield_strength: 276.0e+6, modulus: 68.9e+9, stress_concentration: 1.5}     # 6061-T6 class
+# or as segments along the link (from / to in m from the beam start; "end" = the far end):
+#     section:
+#       - {from: 0.00, to: 0.08, kind: rect_tube, width: 0.040, height: 0.030, wall: 0.003, yield_strength: ..., modulus: ...}
+#       - {from: 0.08, to: 0.20, kind: rect, width: 0.050, height: 0.040, yield_strength: ..., modulus: ...}   # motor-braced, ~solid
+#       - {from: 0.20, to: end,  kind: parallel_plates, thickness: 0.004, depth: 0.040, gap: 0.030, yield_strength: ..., modulus: ...}
+#   Kinds: tube | rect_tube | parallel_plates | i_beam | rect | generic (area, Iy, Iz, J, c_y, c_z).  Beam frame: x along the
+#   beam, y = the link-frame y axis (`y_ref`), z = x cross y.  Iy resists bending in the z direction ("depth" is along z).
+#   Stress = Kt (|N|/A + |My| c_z/Iy + |Mz| c_y/Iz); torsion and shear are reported but NOT included.  At a boundary the
+#   weaker neighbouring section governs.  All segments of a link must share one y_ref.  Forces and moments in every link
+#   (N, V, M, T) are reported regardless.  Kt = 1.5 everywhere is a GUESS (bolt holes, bearing seats).
+# =============================================================================
+
+robot:
+  total_mass: 40.0            # kg: sets the load of every "fraction x robot weight" case and of the gaits (given)
+
+gravity: 9.81                 # m/s^2
+n_stations: 5                 # evenly spaced stations per link for the load diagrams (plus extras at masses / section changes)
+double_support_fraction: 0.5  # default load fraction when the UI toggle is on double support (an even split)
+single_support_fraction: 1.0  # ... and on single support
+
+# -----------------------------------------------------------------------------
+# Joints, ordered pelvis -> foot.  Each joint carries the link distal to it.
+# -----------------------------------------------------------------------------
+joints:
+  - name: hip_flexion                                     # J1, X8-150 in the hip box, axis along y
+    axis: [0, -1, 0]                                      # flexion positive
+    # origin = pitch output flange, assumed on the outer face of the actuator (y = 67.5 mm from the centre line)
+    origin: {xyz: [0.0, 0.0675, 0.0], rpy_deg: [0, 0, 0]} # PLACEHOLDER flange y
+    limits_deg: [-30, 130]                                # 30 extension / 130 flexion
+    link:                                                 # pitch bracket + abduction actuator
+      name: hip_flexion_bracket
+      mass: 0.336                                         # moving structure from the pitch output to the abduction actuator (given)
+      com: center
+      point_masses:
+        - {name: hip_abduction_actuator, mass: 1.33, pos: [0.0, 0.070, 0.0]}   # X8-150 on J2's axis; PLACEHOLDER x = 0 (centred on the leg)
+      two_force: false
+      # treated as solid: a block the size of the X8-150 envelope, so its stress is never the limiting number
+      section: {kind: rect, width: 0.096, height: 0.096, yield_strength: 276.0e+6, modulus: 68.9e+9, stress_concentration: 1.5}   # PLACEHOLDER size, Kt
+
+  - name: hip_abduction                                   # J2, X8-150, axis along x, y = 0.1375 m, same height as J1
+    axis: [1, 0, 0]
+    origin: {xyz: [0.0, 0.070, 0.0], rpy_deg: [0, 0, 0]}  # 137.5 mm from the centre line (hip width 275 mm) minus J1's 67.5 mm
+    limits_deg: [-20, 20]                                 # 20 abduction / 20 adduction
+    link:                                                 # upper thigh housing around the X6-60, J2 -> J3 (120 mm)
+      name: hip_abduction_housing
+      mass: 0.445                                         # the 1 kg thigh structure minus the 0.555 kg below J3 (given)
+      com: center
+      point_masses:
+        - {name: hip_rotation_actuator, mass: 0.82, pos: [0.0, 0.0, -0.086]}   # X6-60, COM 86 mm below the abduction axis (given)
+      two_force: false
+      section: {kind: parallel_plates, thickness: 0.0065, depth: 0.055, gap: 0.0875, yield_strength: 276.0e+6, modulus: 68.9e+9, stress_concentration: 1.5}   # PLACEHOLDER Kt
+
+  - name: hip_rotation                                    # J3, X6-60, axis along z, 120 mm below J1
+    axis: [0, 0, 1]
+    origin: {xyz: [0.0, 0.0, -0.120], rpy_deg: [0, 0, 0]}
+    limits_deg: [-45, 45]                                 # 45 internal / 45 external
+    link:                                                 # thigh, J3 -> knee (200 mm)
+      name: thigh
+      mass: 0.555                                         # thigh structure below J3 (given)
+      com: center
+      point_masses:
+        - {name: knee_actuator, mass: 1.33, pos: [0.0, 0.0, -0.200]}      # X8-150 in line with the knee axis
+      two_force: false
+      section: {kind: parallel_plates, thickness: 0.004, depth: 0.046, gap: 0.065, yield_strength: 276.0e+6, modulus: 68.9e+9, stress_concentration: 1.5}   # PLACEHOLDER Kt
+
+  - name: knee                                            # J4, X8-150, 320 mm below J1
+    axis: [0, 1, 0]                                       # flexion positive
+    origin: {xyz: [0.0, 0.0, -0.200], rpy_deg: [0, 0, 0]}
+    limits_deg: [0, 130]
+    link:                                                 # shank, knee -> ankle pitch (352.5 mm)
+      name: shank
+      mass: 0.815                                         # structure (given)
+      com: center
+      point_masses:
+        # The two ankle actuators (axes parallel to y), COM 102.5 / 172.5 mm below the knee (given).  Their ratings and
+        # mass come from `actuator_options.ankle_motor` below (0.36 kg is the default X4-36-L).  Lateral y = 0 is read
+        # off the front view (bodies centred on the leg line).
+        - {name: ankle_upper_actuator, mass: 0.36, pos: [0.0, 0.0, -0.1025]}  # PLACEHOLDER y = 0
+        - {name: ankle_lower_actuator, mass: 0.36, pos: [0.0, 0.0, -0.1725]}  # PLACEHOLDER y = 0
+        # The two ankle rods at their neutral mid-points (between lever tip and foot pickup), upper rod on the
+        # inboard (-y) side.  Masses 0.0805 / 0.03325 kg (given).  Drawn in yellow ("linkage").
+        - {name: ankle_rod_upper, mass: 0.0805,  pos: [0.0573, -0.021, -0.2363], kind: linkage}
+        - {name: ankle_rod_lower, mass: 0.03325, pos: [0.0573,  0.021, -0.2713], kind: linkage}
+      two_force: false
+      section:
+        - {from: 0.0,    to: 0.075,  kind: parallel_plates, thickness: 0.005, depth: 0.055, gap: 0.058, yield_strength: 276.0e+6, modulus: 68.9e+9, stress_concentration: 1.5}   # PLACEHOLDER Kt
+        # motor-braced zone: ~solid block across the plates (68 = 58 gap + 2 x 5 plates); ends 197 mm below the knee (given);
+        # starts 75 mm = 102.5 - 55/2 below the knee (assumed from the motor diameter)
+        - {from: 0.075,  to: 0.197,  kind: rect, width: 0.068, height: 0.055, yield_strength: 276.0e+6, modulus: 68.9e+9, stress_concentration: 1.5}   # PLACEHOLDER Kt, zone start
+        - {from: 0.197,  to: 0.3295, kind: parallel_plates, thickness: 0.005, depth: 0.055, gap: 0.058, yield_strength: 276.0e+6, modulus: 68.9e+9, stress_concentration: 1.5}   # PLACEHOLDER Kt
+        # bottom 23 mm: hollow rectangle, 13 mm walls parallel to the plates, 3 mm on the others (given); the outer size is
+        # assumed equal to the plate span x plate width
+        - {from: 0.3295, to: end,    kind: rect_tube, width: 0.068, height: 0.055, wall_y: 0.013, wall_z: 0.003, yield_strength: 276.0e+6, modulus: 68.9e+9, stress_concentration: 1.5}   # PLACEHOLDER Kt, outer size
+
+  - name: ankle_flexion                                   # J5, 672.5 mm below J1
+    axis: [0, -1, 0]                                      # dorsiflexion positive
+    origin: {xyz: [0.0, 0.0, -0.3525], rpy_deg: [0, 0, 0]}
+    limits_deg: [-45, 30]                                 # 45 plantarflexion / 30 dorsiflexion
+    link:                                                 # ankle cross, J5 -> J6 (17.5 mm)
+      name: ankle_cross
+      mass: 1.333                                         # (given)
+      com: center
+      two_force: false
+      section: {kind: rect, width: 0.025, height: 0.020, yield_strength: 276.0e+6, modulus: 68.9e+9, stress_concentration: 1.5}   # PLACEHOLDER Kt, orientation assumed
+
+  - name: ankle_inversion                                 # J6, 17.5 mm below J5
+    axis: [1, 0, 0]
+    origin: {xyz: [0.0, 0.0, -0.0175], rpy_deg: [0, 0, 0]}
+    limits_deg: [-30, 30]                                 # 30 eversion / 30 inversion
+    link:                                                 # foot plate + its mount post
+      name: foot
+      mass: 0.916                                         # (given)
+      com: [0.055, 0.0, -0.029]                           # plate centre (heel -55 mm .. toe +165 mm), mid-thickness
+      two_force: false
+      # 10 mm plate: the beam runs from the ankle mount toward the toe at the plate mid-plane.  It covers a centre of
+      # pressure AHEAD of the ankle; a CoP behind the ankle is only right at the mount (the heel cantilever is not modelled).
+      beam: {from: [0.0, 0.0, -0.029], to: [0.165, 0.0, -0.029]}
+      section: {kind: rect, width: 0.110, height: 0.010, yield_strength: 276.0e+6, modulus: 68.9e+9, stress_concentration: 1.5}   # PLACEHOLDER Kt
+
+foot:
+  # The ankle roll axis (J6) is 24 mm above the top of the 10 mm plate, so the sole is 34 mm below J6 (given).  A rigid
+  # mount (drawn as a short post) joins J6 to the plate top; it is part of the foot link.
+  contact_point: [0.0, 0.0, -0.034]   # sole point under J6, in the foot (last link) frame: where ground force is applied
+  beam_end: [0.0, 0.0, -0.034]        # end of the foot's structural beam (only used when the link has no `beam:` override)
+  # Foot plate 220 x 110 x 10 mm (given), ankle 55 mm from the heel (given) -> heel_x = -0.055, toe_x = +0.165, half_width = 0.055.
+  sole: {toe_x: 0.165, heel_x: -0.055, half_width: 0.055, thickness: 0.010}
+
+# -----------------------------------------------------------------------------
+# Actuators (MyActuator RMD-X datasheets).  Ratings are OUTPUT-side (after the integrated gearbox), so the hip / knee
+# transmissions below use ratio 1, and the ankle's T is the lever geometry only.
+#   continuous = rated torque, peak = peak torque, max_speed = no-load speed, rated_speed = speed at rated torque
+#   rotor_inertia is referred to the output shaft: N^2 x the datasheet "moment of inertia", i.e. the datasheet value is
+#   treated as ROTOR-side.  (The user confirmed the datasheet numbers; the rotor-side interpretation is ours.)
+#   X8-150  : N 19.612, rated 43, peak 120 N*m, 158 rpm = 16.55 rad/s, rated 127 rpm = 13.30, J 1.023e-3 -> 0.3935 kg m^2
+#   X6-60   : N 19.612, rated 20, peak 60 N*m,  176 rpm = 18.43 rad/s, rated 153 rpm = 16.02, J 0.66e-4  -> 0.02539
+#   X4-36-L : N 36,     rated 10.5, peak 30 N*m, 111 rpm = 11.62 rad/s, rated 83 rpm  = 8.69,  J 8.2e-5   -> 0.1063
+#   X6-50-L : N 19.612, rated 20, peak 45 N*m,  176 rpm = 18.43 rad/s, rated 153 rpm = 16.02, J 1.9e-3   -> 0.7308
+# The datasheets are not obviously consistent in how they define moment of inertia (X6-60 lists 0.66 kg*cm^2, X6-50-L
+# 0.0019 kg*m^2); only the impact estimate uses it.
+# The two ankle entries must match the DEFAULT choice of `actuator_options.ankle_motor` (checked on load).
+# -----------------------------------------------------------------------------
+actuators:
+  - {name: hip_flexion_act,   model: X8-150,  kind: rotary, continuous: 43.0, peak: 120.0, max_speed: 16.55, rated_speed: 13.30, rotor_inertia: 0.3935}
+  - {name: hip_abduction_act, model: X8-150,  kind: rotary, continuous: 43.0, peak: 120.0, max_speed: 16.55, rated_speed: 13.30, rotor_inertia: 0.3935}
+  - {name: hip_rotation_act,  model: X6-60,   kind: rotary, continuous: 20.0, peak: 60.0,  max_speed: 18.43, rated_speed: 16.02, rotor_inertia: 0.02539}
+  - {name: knee_act,          model: X8-150,  kind: rotary, continuous: 43.0, peak: 120.0, max_speed: 16.55, rated_speed: 13.30, rotor_inertia: 0.3935}
+  - {name: ankle_upper_act,   model: X4-36-L, kind: rotary, continuous: 10.5, peak: 30.0,  max_speed: 11.62, rated_speed: 8.69,  rotor_inertia: 0.1063}   # lever pivot 102.5 mm below the knee
+  - {name: ankle_lower_act,   model: X4-36-L, kind: rotary, continuous: 10.5, peak: 30.0,  max_speed: 11.62, rated_speed: 8.69,  rotor_inertia: 0.1063}   # lever pivot 172.5 mm below the knee
+
+# -----------------------------------------------------------------------------
+# Actuator options: alternative models for a group of actuators, selectable in the UI ("Hardware").  A choice replaces
+# the ratings, rotor inertia and (if given) the weight of the lumped masses named in `mass_points`.  GEOMETRY IS NOT
+# CHANGED: the `note` says when a motor would not fit the geometry above.  The `default` choice must equal the entries
+# in `actuators:` / `point_masses:` (checked on load).
+# -----------------------------------------------------------------------------
+actuator_options:
+  ankle_motor:
+    label: Ankle Motor
+    applies_to: [ankle_upper_act, ankle_lower_act]
+    mass_points: [ankle_upper_actuator, ankle_lower_actuator]
+    default: X4-36-L
+    choices:
+      X4-36-L: {continuous: 10.5, peak: 30.0, max_speed: 11.62, rated_speed: 8.69, rotor_inertia: 0.1063, mass: 0.36,
+                note: "X4-36-L: 55 mm diameter, 61 mm long, 0.36 kg, 36:1."}
+      X6-50-L: {continuous: 20.0, peak: 45.0, max_speed: 18.43, rated_speed: 16.02, rotor_inertia: 0.7308, mass: 0.78,
+                note: "X6-50-L: 80 mm diameter, 63.5 mm long, 0.78 kg, 19.6:1. It does NOT fit the current geometry: the two motor axes are only 70 mm apart and the shank plates are 55 mm wide. Ratings and weight are swapped, geometry is not."}
+
+# -----------------------------------------------------------------------------
+# Transmissions: joint space -> actuator space.  Every joint and every actuator must appear in exactly one group.
+#   qdot_act = T(q) qdot_joint            =>   f_act = T^-T tau_joint        (leg/actuators.py)
+#   type: ratio | matrix | table | function   (function: "package.module:fn", `params` are passed as keyword arguments)
+# -----------------------------------------------------------------------------
+transmissions:
+  - {joints: [hip_flexion],   actuators: [hip_flexion_act],   type: ratio, ratio: 1.0}    # integrated gearbox; ratings are output-side
+  - {joints: [hip_abduction], actuators: [hip_abduction_act], type: ratio, ratio: 1.0}
+  - {joints: [hip_rotation],  actuators: [hip_rotation_act],  type: ratio, ratio: 1.0}
+  - {joints: [knee],          actuators: [knee_act],          type: ratio, ratio: 1.0}    # direct, in line with the knee
+  # Parallel ankle: two levers (75 mm, on the ankle motor output shafts) drive two rods to the foot (leg/linkages.py).
+  # Lever pivots are the actuator axes, 250 / 180 mm above J5 (= 352.5 - 102.5 / 172.5).  Both levers are PERPENDICULAR to
+  # the shin at neutral (neutral_angle 0).  Foot pickups: 39.5 mm ahead of the ankle, +-21 mm left/right, at the height of the
+  # roll axis J6 (all given).
+  # CONFLICT TO CHECK IN CAD: for those facts to hold the rods must be sqrt(0.0355^2 + (pivot height + 0.0175)^2) = 269.85 mm
+  # (upper) and 200.67 mm (lower).  The 240 / 170 mm quoted earlier are ~30 mm shorter.  We use the implied lengths: the ankle
+  # ratio is almost the same either way (pitch ~0.56 vs 0.57) and the levers then swing about -25 .. +28 deg over the full
+  # ankle range.  No lever limits are enforced (the linkage is assumed free over the range of motion).
+  - joints: [ankle_flexion, ankle_inversion]
+    actuators: [ankle_upper_act, ankle_lower_act]
+    type: function
+    function: "leg.linkages:ankle_parallel_jacobian"
+    params:
+      ankle_pitch_axis: [0, -1, 0]
+      ankle_roll_axis: [1, 0, 0]
+      j5_to_j6: [0.0, 0.0, -0.0175]
+      actuator_axis_z: [0.250, 0.180]            # lever pivots above J5 [m]
+      lever_length: 0.075
+      rod_length: [0.26985, 0.20067]             # implied by the geometry above (see the conflict note)
+      lever_y: [-0.021, 0.021]                   # PLACEHOLDER lever / rod lateral position, assumed equal to the pickup y
+      pickup_foot: [[0.0395, -0.021, 0.0], [0.0395, 0.021, 0.0]]   # pickups in the J6 (foot) frame, at roll-axis height
+      neutral_angle: 0.0
+
+# -----------------------------------------------------------------------------
+# Gaits: ONE STANCE PHASE each (foot strike -> toe-off) as keyframes, used by the walking preset and the Gait
+# Cycle tab.  Replace with your gait planner's output when you have it.
+#   phase       0 = foot strike .. 1 = toe-off, as a FRACTION OF THE STANCE DURATION (so keyframe times scale with stance_time)
+#   q_deg       joint angles in joint order: hip_flexion, hip_abduction, hip_rotation, knee, ankle_flexion, ankle_inversion
+#   force_bw    ground reaction on the foot in body weights [fore-aft (+ forward), lateral (+ left), vertical]
+#   cop_x       centre of pressure ahead of the ankle along the foot [m]  (heel -0.055 .. toe +0.165)
+#   stance_time     foot-down duration [s]; only sets joint speeds (angle change / time), never the torques
+#   stance_fraction share of the whole gait cycle spent in stance; only used for the whole-cycle RMS estimate
+# Force reference (given): walking, vertical force of about 1 body weight within ~150 ms of foot strike.  Everything else (joint angles, fore-aft and lateral shares, CoP path, durations) is a
+# typical adult human shape scaled to this robot, NOT measured on this robot: placeholders.  The foot pitches (heel strike,
+# toe-off) as a human foot does: this is a heel-to-toe gait, NOT a flat-foot gait.
+# -----------------------------------------------------------------------------
+gaits:
+  walking:
+    description: "Level walking, one stance phase from heel strike to toe-off. Vertical force about 1 body weight within 150 ms of heel strike (reference given); other values typical adult human shapes scaled to this robot."
+    stance_time: 0.60        # PLACEHOLDER stance duration [s]; the 1 BW keyframe (phase 0.25) is 150 ms only at this value
+    stance_fraction: 0.60    # PLACEHOLDER stance share of the gait cycle (swing assumed unloaded in the whole-cycle RMS)
+    keyframes:
+      - {phase: 0.00, name: "Heel strike", q_deg: [28, -2, 0, 4, 0, 2],     force_bw: [-0.05, -0.02, 0.10], cop_x: -0.055}   # PLACEHOLDER
+      - {phase: 0.10, name: "Loading",     q_deg: [26, -4, 0, 12, -6, 4],   force_bw: [-0.18, -0.04, 0.80], cop_x: -0.030}   # PLACEHOLDER
+      - {phase: 0.25, name: "Peak 1",      q_deg: [20, -4, 0, 18, -3, 4],   force_bw: [-0.20, -0.05, 1.00], cop_x: 0.000}    # 1 BW at 150 ms (given)
+      - {phase: 0.50, name: "Mid-stance",  q_deg: [2, -4, 0, 8, 5, 4],      force_bw: [0.00, -0.03, 0.80],   cop_x: 0.040}    # PLACEHOLDER
+      - {phase: 0.75, name: "Peak 2",      q_deg: [-8, -3, 0, 8, 10, 3],    force_bw: [0.20, 0.00, 1.00],   cop_x: 0.110}    # PLACEHOLDER
+      - {phase: 0.90, name: "Pre-swing",   q_deg: [-12, -2, 0, 24, -4, 2],  force_bw: [0.12, 0.02, 0.45],   cop_x: 0.150}    # PLACEHOLDER
+      - {phase: 1.00, name: "Toe-off",     q_deg: [-10, -1, 0, 40, -10, 1], force_bw: [0.02, 0.02, 0.05],   cop_x: 0.165}    # PLACEHOLDER
+
+# -----------------------------------------------------------------------------
+# Presets (MUST stay the LAST section: the UI's "Save Current Pose as Preset" button appends here, one line each).
+# q_deg order = joints order above: hip_flexion, hip_abduction, hip_rotation, knee, ankle_flexion, ankle_inversion.
+# load_fraction x robot weight is applied vertically at the contact point.  `support` only selects the default fraction.
+# Optional `motion:` makes the preset follow a gait keyframe (see leg/gait.py):
+#   {type: gait, gait: <name from gaits:>, phase: <0..1>}   joint angles, force and CoP follow a gait keyframe
+# (Jump-landing, stand-speed and running presets were removed: out of scope for walking / squat / step-up sizing.
+#  The pre-trim configuration is kept in ../leg_calc_backup_20261009/.)
+# Optional `description:` text is shown under the preset selector.
+# -----------------------------------------------------------------------------
+presets:
+  stand: {q_deg: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], load_fraction: 0.5, support: double, description: "Standing upright on both feet, leg straight. Static: half the body weight on this leg, vertical, directly under the ankle."}
+  deep_squat: {q_deg: [80.0, 0.0, 0.0, 105.0, 25.0, 0.0], load_fraction: 0.5, support: double, description: "Two-footed deep squat (hip 80 deg, knee 105 deg, ankle 25 deg). Static: half the body weight on this leg, no motion."}
+  stair_step_up: {q_deg: [60.0, 0.0, 0.0, 80.0, 20.0, 0.0], load_fraction: 1.0, support: single, description: "Single-leg support at the top of a step-up (hip 60 deg, knee 80 deg, ankle 20 deg). Static: the full body weight on this leg."}
+  sit_to_stand_static: {q_deg: [85.0, 0.0, 0.0, 95.0, 10.0, 0.0], load_fraction: 0.6, support: double, description: "One frozen instant just after seat-off (hip 85 deg, knee 95 deg, ankle 10 deg). Static: 0.6x body weight on this leg, a rough allowance for the push-off. No seat contact and no acceleration are modelled."}
+  walking: {q_deg: [20.0, -4.0, 0.0, 18.0, -3.0, 4.0], load_fraction: 1.0, support: single, motion: {type: gait, gait: walking, phase: 0.25}, description: "Level walking, single-leg stance. Pick a stance keyframe with the buttons, from heel strike to toe-off (angles, ground force and centre of pressure change together), and see the peak / RMS actuator load over the step on the Gait Cycle tab. Typical human values scaled to this robot, not robot data."}

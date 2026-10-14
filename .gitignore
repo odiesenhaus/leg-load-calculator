@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+.pytest_cache/
+exports/
+streamlit.log
+*.pyc
+.streamlit/secrets.toml

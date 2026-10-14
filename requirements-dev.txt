@@ -1,0 +1,4 @@
+# Local development: tests and PNG export.  pip install -r requirements-dev.txt
+-r requirements.txt
+pytest>=8
+kaleido>=1.0   # optional: PNG export from the Export tab (needs a local Chrome: run plotly_get_chrome once)

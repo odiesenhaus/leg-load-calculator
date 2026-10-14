@@ -1,0 +1,6 @@
+# Runtime dependencies (what a hosted copy installs).  Pinned to the versions the tests pass with.
+streamlit==1.65.0   # st.pills (the gait keyframe buttons) needs 1.40+; st.context.headers needs 1.37+
+numpy==2.5.3
+plotly==7.1.0
+pandas==3.0.6
+pyyaml==6.0.3
