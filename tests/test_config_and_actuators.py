@@ -161,11 +161,16 @@ def test_ankle_linkage_neutral_jacobian_and_rod_lengths(template_cfg, rng):
     spec = next(t for t in template_cfg.transmissions if t.kind == "function")
     P = spec.params
     T0 = linkages.ankle_parallel_jacobian(np.zeros(2), **P)
-    # hand estimate at neutral (levers ~horizontal, rods ~vertical): pitch ~ pick-up x / lever = 0.527, roll ~ pick-up y / lever = 0.28
-    # levers are perpendicular to the shin at neutral, rods nearly vertical: pitch ~ pickup x / lever, roll ~ pickup y / lever
-    assert np.allclose(np.abs(T0[:, 0]), 39.5 / 75, rtol=0.10) and np.allclose(T0[:, 1], [0.28, -0.28], rtol=0.03)
+    # hand estimate at neutral: the rods are nearly vertical, so a pitch rotation lifts the pickup by (pickup x) per radian
+    # and the lever tip must follow it vertically, which it does at (lever length x cos(neutral angle)) per radian;
+    # roll likewise with the pickup y.  With 83.7 mm / (75 mm cos 4.9 deg) = 1.12 and 21 / 74.7 = 0.28.
+    phi = P["neutral_angle"]
+    reach = P["lever_length"] * np.cos(phi)
+    assert np.allclose(np.abs(T0[:, 0]), P["pickup_foot"][0][0] / reach, rtol=0.03)
+    assert np.allclose(T0[:, 1], [abs(P["pickup_foot"][0][1]) / reach, -abs(P["pickup_foot"][1][1]) / reach], rtol=0.03)
     assert np.all(T0[:, 0] < 0)
-    assert np.allclose(linkages.solve_ankle_actuator_angles(np.zeros(2), **P), 0.0, atol=np.radians(0.3))   # perpendicular
+    # at neutral the levers sit at the configured neutral angle (4.9 deg up)
+    assert np.allclose(linkages.solve_ankle_actuator_angles(np.zeros(2), **P), phi, atol=np.radians(0.1))
     for _ in range(20):
         q = np.array([rng.uniform(-0.78, 0.52), rng.uniform(-0.52, 0.52)])
         th = linkages.solve_ankle_actuator_angles(q, **P)
@@ -196,8 +201,27 @@ def test_ankle_linkage_is_feasible_over_the_whole_ankle_range(template_cfg):
     lo6, hi6 = cfg.joints[5].limits
     ang = np.array([linkages.solve_ankle_actuator_angles(np.array([qp, qr]), **P)
                     for qp in np.linspace(lo5, hi5, 13) for qr in np.linspace(lo6, hi6, 9)])      # raises if a rod cannot reach
-    assert np.degrees(ang.min()) > -30 and np.degrees(ang.max()) < 30                              # lever swing about -25..+28 deg
-    # rod lengths are the ones that make pickups-at-roll-axis-height + perpendicular levers consistent
-    pivot_z, lever, rods = P["actuator_axis_z"], P["lever_length"], P["rod_length"]
+    # given lever swing over the full range of motion: -51 .. +47 deg
+    assert np.degrees(ang.min()) == pytest.approx(-51.0, abs=0.5) and np.degrees(ang.max()) == pytest.approx(47.0, abs=0.5)
+    # the given rod lengths close the loop with the lever at its neutral angle and the foot flat (pickups at roll-axis
+    # height, 17.5 mm below J5): |tip - pickup| with tip = pivot + l (cos phi, 0, -sin phi)
+    pivot_z, lever, rods, phi = P["actuator_axis_z"], P["lever_length"], P["rod_length"], P["neutral_angle"]
     for pz, rl in zip(pivot_z, rods):
-        assert rl == pytest.approx(np.hypot(lever - P["pickup_foot"][0][0], pz + 0.0175), abs=2e-4)
+        assert rl == pytest.approx(np.hypot(lever * np.cos(phi) - P["pickup_foot"][0][0],
+                                            pz - lever * np.sin(phi) + 0.0175), abs=1e-4)
+    # transmission quality: the lever-rod angle never drops below 45 deg anywhere in the range (dead-centre = 0)
+    from leg.kinematics import rot_axis
+    worst = 90.0
+    for qp in np.linspace(lo5, hi5, 13):
+        for qr in np.linspace(lo6, hi6, 9):
+            q = np.array([qp, qr])
+            th = linkages.solve_ankle_actuator_angles(q, **P)
+            R5 = rot_axis(np.asarray(P["ankle_pitch_axis"], float), qp)
+            R6 = R5 @ rot_axis(np.asarray(P["ankle_roll_axis"], float), qr)
+            for i in range(2):
+                pick = R5 @ np.array(P["j5_to_j6"]) + R6 @ np.array(P["pickup_foot"][i])
+                lev = np.array([np.cos(th[i]), 0.0, -np.sin(th[i])])
+                tip = np.array([0, P["lever_y"][i], pivot_z[i]]) + lever * lev
+                u = (tip - pick) / np.linalg.norm(tip - pick)
+                worst = min(worst, np.degrees(np.arccos(abs(lev @ u))))
+    assert worst > 44.5

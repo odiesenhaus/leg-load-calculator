@@ -128,8 +128,8 @@ joints:
         - {name: ankle_lower_actuator, mass: 0.36, pos: [0.0, 0.0, -0.1725]}  # PLACEHOLDER y = 0
         # The two ankle rods at their neutral mid-points (between lever tip and foot pickup), upper rod on the
         # inboard (-y) side.  Masses 0.0805 / 0.03325 kg (given).  Drawn in yellow ("linkage").
-        - {name: ankle_rod_upper, mass: 0.0805,  pos: [0.0573, -0.021, -0.2363], kind: linkage}
-        - {name: ankle_rod_lower, mass: 0.03325, pos: [0.0573,  0.021, -0.2713], kind: linkage}
+        - {name: ankle_rod_upper, mass: 0.0805,  pos: [0.0792, -0.021, -0.2330], kind: linkage}
+        - {name: ankle_rod_lower, mass: 0.03325, pos: [0.0792,  0.021, -0.2680], kind: linkage}
       two_force: false
       section:
         - {from: 0.0,    to: 0.075,  kind: parallel_plates, thickness: 0.005, depth: 0.055, gap: 0.058, yield_strength: 276.0e+6, modulus: 68.9e+9, stress_concentration: 1.5}   # PLACEHOLDER Kt
@@ -225,13 +225,11 @@ transmissions:
   - {joints: [hip_rotation],  actuators: [hip_rotation_act],  type: ratio, ratio: 1.0}
   - {joints: [knee],          actuators: [knee_act],          type: ratio, ratio: 1.0}    # direct, in line with the knee
   # Parallel ankle: two levers (75 mm, on the ankle motor output shafts) drive two rods to the foot (leg/linkages.py).
-  # Lever pivots are the actuator axes, 250 / 180 mm above J5 (= 352.5 - 102.5 / 172.5).  Both levers are PERPENDICULAR to
-  # the shin at neutral (neutral_angle 0).  Foot pickups: 39.5 mm ahead of the ankle, +-21 mm left/right, at the height of the
-  # roll axis J6 (all given).
-  # CONFLICT TO CHECK IN CAD: for those facts to hold the rods must be sqrt(0.0355^2 + (pivot height + 0.0175)^2) = 269.85 mm
-  # (upper) and 200.67 mm (lower).  The 240 / 170 mm quoted earlier are ~30 mm shorter.  We use the implied lengths: the ankle
-  # ratio is almost the same either way (pitch ~0.56 vs 0.57) and the levers then swing about -25 .. +28 deg over the full
-  # ankle range.  No lever limits are enforced (the linkage is assumed free over the range of motion).
+  # Lever pivots are the actuator axes, 250 / 180 mm above J5 (= 352.5 - 102.5 / 172.5).  At neutral (foot flat) both levers
+  # point forward, tilted 4.9 deg UP (neutral_angle = -4.9 deg: the angle is right-hand about +y, so positive tips the lever
+  # tip down).  Foot pickups: 83.7 mm ahead of J6, +-21 mm left/right, at the roll-axis height.  Rods 274.1 / 204.1 mm
+  # (given, 2026-10-16; consistent with the pivots: they close the loop at neutral to 0.1 mm).  The levers swing about
+  # -51 .. +47 deg over the full ankle range.  No lever limits are enforced (the linkage is assumed free over that range).
   - joints: [ankle_flexion, ankle_inversion]
     actuators: [ankle_upper_act, ankle_lower_act]
     type: function
@@ -242,10 +240,10 @@ transmissions:
       j5_to_j6: [0.0, 0.0, -0.0175]
       actuator_axis_z: [0.250, 0.180]            # lever pivots above J5 [m]
       lever_length: 0.075
-      rod_length: [0.26985, 0.20067]             # implied by the geometry above (see the conflict note)
+      rod_length: [0.2741, 0.2041]               # upper / lower (given)
       lever_y: [-0.021, 0.021]                   # PLACEHOLDER lever / rod lateral position, assumed equal to the pickup y
-      pickup_foot: [[0.0395, -0.021, 0.0], [0.0395, 0.021, 0.0]]   # pickups in the J6 (foot) frame, at roll-axis height
-      neutral_angle: 0.0
+      pickup_foot: [[0.0837, -0.021, 0.0], [0.0837, 0.021, 0.0]]   # pickups in the J6 (foot) frame, at roll-axis height
+      neutral_angle: -0.08552                   # rad = -4.9 deg: lever tilted 4.9 deg up at neutral (Newton start)
 
 # -----------------------------------------------------------------------------
 # Gaits: ONE STANCE PHASE each (foot strike -> toe-off) as keyframes, used by the walking preset and the Gait

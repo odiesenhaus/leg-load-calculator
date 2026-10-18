@@ -40,11 +40,16 @@ def test_lever_balance_and_hand_derived_arm_at_neutral(template_cfg):
     rl = ankle_rod_loads(cfg, fk, f_act)
     P = cfg.transmissions[-1].params
     for i, rd in enumerate(rl):
-        # neutral: lever horizontal, rod from the pickup (39.5 mm ahead, 17.5 mm below J5) to the tip (75 mm ahead)
-        dz = P["actuator_axis_z"][i] + 0.0175
-        L = np.hypot(P["lever_length"] - 0.0395, dz)
-        assert rd.length == pytest.approx(P["rod_length"][i], abs=2e-4) and rd.length == pytest.approx(L, abs=2e-4)
-        assert rd.arm == pytest.approx(-P["lever_length"] * dz / L, rel=1e-4)
+        # neutral: lever at its neutral angle phi (4.9 deg up), rod from the pickup (83.7 mm ahead of J6, 17.5 mm below
+        # J5) to the lever tip.  The arm is the lever's lever-arm about the rod line: l (-sin phi u_x - cos phi u_z).
+        phi = rd.lever_angle
+        assert phi == pytest.approx(P["neutral_angle"], abs=np.radians(0.1))
+        l, bx = P["lever_length"], P["pickup_foot"][i][0]
+        dx = l * np.cos(phi) - bx
+        dz = P["actuator_axis_z"][i] - l * np.sin(phi) + 0.0175
+        L = np.hypot(dx, dz)
+        assert rd.length == pytest.approx(P["rod_length"][i], abs=1e-6) and rd.length == pytest.approx(L, abs=1e-6)
+        assert rd.arm == pytest.approx(l * (-np.sin(phi) * dx / L - np.cos(phi) * dz / L), rel=1e-6)
         assert rd.force * rd.arm == pytest.approx(f_act[rd.actuator])         # f = F * arm
         # moment of the rod's pull on the lever about the shaft (+y) is minus the motor torque
         lever_force = -rd.force * rd.u
@@ -119,13 +124,19 @@ def test_lower_shank_cut_matches_a_hand_computed_free_body(template_cfg):
 
 
 def test_walking_push_off_rods_and_loads(template_cfg):
-    """Regression on the headline case: rods in compression at ~1 kN combined, J5 bearing load well above ground force."""
+    """Headline case (walking push-off, 1 BW, CoP 110 mm ahead): the rods push the foot down with about
+    ankle torque / pickup distance, and the J5 bearing carries what is left after the ground force."""
     from leg import gait
     cfg = template_cfg
     g = cfg.gaits["walking"]
     q, f, cop = gait.sample(g, 0.75)
     W = cfg.robot_total_mass * cfg.gravity
     r = analyze(cfg, Inputs(q=q, load=Load(f * W), cop_offset=(cop, 0.0)))
-    assert all(rd.force < -400 for rd in r.rods) and -1200 < sum(rd.force for rd in r.rods) < -900
-    assert np.linalg.norm(r.flanges[4].force_local) > 600                   # was 379 N without the rods
-    assert r.links[4].peak_bending.M_bend < 10                              # ankle cross: was 45 N*m
+    bx = cfg.transmissions[-1].params["pickup_foot"][0][0]
+    total = sum(rd.force for rd in r.rods)
+    assert all(rd.force < 0 for rd in r.rods)                               # compression: pushing the toe down
+    assert -total == pytest.approx(abs(r.static.tau[4]) / bx, rel=0.05)    # ~ tau / pickup distance (rods nearly vertical)
+    assert -total == pytest.approx(530, rel=0.05)                           # 2 x ~265 N with the 83.7 mm pickups
+    # foot free body: rods push down ~530 N at the pickups, ground pushes up ~390 N, the J5 bearing takes the difference
+    assert 100 < np.linalg.norm(r.flanges[4].force_local) < 250
+    assert r.links[4].peak_bending.M_bend < 10                              # ankle cross: was 45 N*m without the rods

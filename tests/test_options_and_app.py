@@ -45,10 +45,11 @@ def test_swap_changes_the_results_in_the_expected_direction(template_cfg):
     assert np.allclose(r0.static.tau[:3], r1.static.tau[:3], rtol=0.05)         # torques barely move (0.84 kg heavier)
     assert r1.actuators[4].util_cont < r0.actuators[4].util_cont                # but the stronger motor is less utilised
     assert r1.actuators[4].util_cont == pytest.approx(r0.actuators[4].util_cont * 10.5 / 20.0, rel=1e-6)
-    # the walking ankle that was over its peak rating with the X4-36-L fits with the X6-50-L
+    # the motors sit above the ankle, so the heavier X6-50-L leaves the ankle motor torques unchanged and the walking
+    # peak utilisation scales exactly with the peak ratings (30 / 45 N*m)
     g = base.gaits["walking"]
     over = lambda cfg: gait.summarize(cfg, g, gait.stance_sweep(cfg, g, n=21))[4]["peak_pct"]   # noqa: E731
-    assert over(base) > 100 > over(new)
+    assert over(new) == pytest.approx(over(base) * 30.0 / 45.0, rel=1e-6)
 
 
 def test_unknown_choice_and_inconsistent_default_are_rejected(template_cfg):
@@ -121,7 +122,7 @@ def test_app_hardware_swap(app):
 
 def test_app_ankle_inversion_row_is_not_blamed_for_the_flexion_load(app):
     _apply(app, "stair_step_up")
-    app.session_state["cop_x_mm"] = 60.0                                                 # forward CoP: ankle pitch overloads the motors
+    app.session_state["cop_x_mm"] = 140.0                                                # forefoot CoP: ankle pitch overloads the motors
     app.session_state["frac_choice"] = "1.0"
     app.run()
     assert not app.exception

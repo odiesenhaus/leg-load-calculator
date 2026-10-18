@@ -19,7 +19,7 @@ def test_one_to_one_joints_equal_their_actuator(template_cfg):
 
 
 def test_zero_roll_torque_shows_zero_share_even_when_pitch_overloads_the_motors(template_cfg):
-    r = _stand(template_cfg, cop=(0.05, 0.0))                  # 50 mm forward CoP, single support: pitch torque only
+    r = _stand(template_cfg, cop=(0.12, 0.0))                  # 120 mm forward CoP, single support: pitch torque only
     assert abs(r.static.tau[5]) < 1e-6                         # no roll torque
     assert r.shares[5].util_cont == pytest.approx(0.0, abs=1e-9) and r.shares[5].status == "ok"
     assert r.shares[4].util_cont > 1.0                         # pitch alone is past the continuous rating

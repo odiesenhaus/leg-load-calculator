@@ -20,8 +20,9 @@ factors (yield only, Kt guessed, no dynamic factor, fatigue not checked).
 
 **Trust with caveats (rods added 2026-10-11):** lower shank / ankle cross / foot / J5-J6 bearing loads now include the ankle
 rods as two-force members (verified: the rod forces reproduce the J5 / J6 torques; hip / knee / upper-shank numbers are
-unchanged). At walking push-off the J5 bearing load is 688 N (was 379 N), the ankle cross bends 5 N*m (was 45), and the shank
-peak moves into the motor zone (39 N*m at the upper pivot; was 45 at the weak lower end). Still ideal: no rod-end moments,
+unchanged). With the 2026-10-16 ankle geometry (pickups 83.7 mm ahead) at walking push-off the rods push ~265 N each, the J5
+bearing load is 154 N, the ankle cross bends 0.4 N*m, the foot 12.5 N*m at the pickups, and the shank peak (39 N*m) sits at the
+upper lever pivot inside the motor-braced zone. Still ideal: no rod-end moments,
 the motor mount is not resolved (force enters at the pivot axis), lever / rod / pickup stresses and rod buckling are not
 checked.
 
@@ -59,7 +60,7 @@ visual checks (gitignored, safe to delete).
 
 | # | Item | What we did | Why it is shaky |
 |---|---|---|---|
-| 1 | **Ankle rod lengths** | Used 269.85 / 200.67 mm | The user quoted 240 / 170 mm, but with their other facts (levers 75 mm perpendicular to the shin at neutral, lever pivots at the actuator COM heights 102.5 / 172.5 mm below the knee, foot pickups at the roll-axis height, 39.5 mm ahead, +-21 mm) the rods must be ~30 mm longer. We trusted the geometry; the ankle ratio is almost the same either way (~0.56 vs 0.57). Unresolved. |
+| 1 | **Ankle linkage geometry** | Lever 75 mm at 4.9 deg up, pickups 83.7 mm ahead of J6 / +-21 mm / roll-axis height, rods 274.1 / 204.1 mm (given 2026-10-16) | Resolved: the given rods close the loop with the existing pivot heights to 0.05 mm. Replaces the earlier 39.5 mm pickups (pitch ratio 0.56 -> 1.11). The roll ratio is unchanged at 0.28 (set by the +-21 mm pickup spacing), so roll stays the weak axis. |
 | 2 | **Lever pivot = actuator COM height** | pivots 250 / 180 mm above J5 | Assumes the output axis is at the motor COM height; `lever_y` (lateral) is assumed equal to the pickup y. |
 | 3 | **Hip width / leg lengths** | hip width 275 mm (J2 at y = 137.5 mm); J1->J4 320 mm, J4->J5 352.5 mm | The first drawing said 125 mm from the centre line to J2 and the user's earlier text said calf 0.32 m. They later confirmed 275 mm; the 352.5 mm calf comes from the drawing. |
 | 4 | **J1 flange position** | y = 67.5 mm (outer face of the pitch actuator) | Assumed from the drawing; it sets the J1 -> J2 offset (70 mm) and the bearing tilt moment at J1. |
@@ -110,9 +111,10 @@ that the app runs and that displayed numbers follow the inputs.
 
 ## 5. Known results that depend on the above
 
-With the default X4-36-L ankle and the human-like walking gait the ankle actuators run at ~128 % of peak and ~170 % of
-continuous RMS; with the X6-50-L they fit. These
-conclusions are only as good as items 1-2 of section 1 and the CoP excursion in the gait data.
+With the 2026-10-16 ankle geometry, the default X4-36-L ankle and the human-like walking gait, the ankle actuators peak at ~65 %
+of their peak rating and ~86 % of continuous (stance RMS); the X6-50-L gives 43 % / 45 %. (With the earlier 39.5 mm pickups
+the X4-36-L ran at ~128 % of peak.) Roll capability is only ~5.9 N*m continuous with the X4-36-L. These conclusions are only
+as good as items 1-2 of section 1 and the CoP excursion (fore-aft and lateral) in the gait data.
 
 ## 6. Questions still open with the user
 
