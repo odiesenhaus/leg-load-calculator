@@ -2,3 +2,4 @@
 -r requirements.txt
 pytest>=8
 kaleido>=1.0   # optional: PNG export from the Export tab (needs a local Chrome: run plotly_get_chrome once)
+scipy          # optional: tools/ankle_ik_opt.py (gradient-based ankle optimiser)

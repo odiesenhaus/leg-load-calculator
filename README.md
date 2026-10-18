@@ -50,6 +50,9 @@ leg/                physics only, no UI imports
 app.py              Streamlit UI (inputs, tables, tabs)      viz.py   Plotly figures
 tests/              pytest: hand-checkable physics cases, config validation, gait, options, headless app tests
 tools/fingerprint.py  numerical fingerprint of the whole model (detects accidental physics changes)
+tools/ankle_bx_sweep.py   sweep of the ankle rod pickup position: lever travel, lever-rod angle, available torque / speed
+tools/ankle_optimize.py   grid search of lever length, lever neutral angle and pickup x (min peak motor load, lever-rod >= 45 deg)
+tools/ankle_ik_opt.py     same problem by SLSQP on the closed-form RSU inverse kinematics (needs SciPy; --check validates it)
 REVIEW_NOTES.md     what to double-check, known conflicts in the inputs, what the tests do not cover
 ```
 
