@@ -1,0 +1,69 @@
+# Theme: "drafting desk" look (palette and type from the Ankle Linkage Solver design).
+# Light and dark are both defined, so viewers can switch in the app's settings menu.
+# viz.PALETTES and app.py's card CSS use the same tokens; keep them in step when changing colours here.
+
+[theme]
+font = "Barlow:https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&display=swap"
+headingFont = "'Barlow Condensed':https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&display=swap"
+codeFont = "'JetBrains Mono':https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap"
+baseFontSize = 15
+codeFontSize = "13px"
+headingFontSizes = ["30px", "21px", "19px", "15px", "14px", "13px"]
+headingFontWeights = [600, 600, 600, 600, 600, 600]
+baseRadius = "8px"
+buttonRadius = "6px"
+showWidgetBorder = true
+showSidebarBorder = true
+linkUnderline = false
+
+[theme.light]
+primaryColor = "#13171b"
+backgroundColor = "#edf0f2"
+secondaryBackgroundColor = "#f4f6f7"
+textColor = "#13171b"
+borderColor = "#d2d8dd"
+codeBackgroundColor = "#f4f6f7"
+dataframeBorderColor = "#e4e8eb"
+dataframeHeaderBackgroundColor = "#f4f6f7"
+redColor = "#d03b3b"
+redTextColor = "#a92626"
+orangeColor = "#fab219"
+orangeTextColor = "#7a5200"
+yellowColor = "#fab219"
+yellowTextColor = "#7a5200"
+greenColor = "#0ca30c"
+greenTextColor = "#0a6c0a"
+blueColor = "#2a78d6"
+grayColor = "#717a84"
+chartCategoricalColors = ["#2a78d6", "#eb6834", "#0ca30c", "#7b4fd0", "#d03b3b", "#c98a00", "#717a84"]
+
+[theme.dark]
+primaryColor = "#3987e5"
+backgroundColor = "#17191b"
+secondaryBackgroundColor = "#1b1d20"
+textColor = "#eceef0"
+borderColor = "#373b40"
+codeBackgroundColor = "#1b1d20"
+dataframeBorderColor = "#2c3034"
+dataframeHeaderBackgroundColor = "#1b1d20"
+redColor = "#d03b3b"
+redTextColor = "#ff8d8d"
+orangeColor = "#fab219"
+orangeTextColor = "#f7c04f"
+yellowColor = "#fab219"
+yellowTextColor = "#f7c04f"
+greenColor = "#0ca30c"
+greenTextColor = "#62d062"
+blueColor = "#3987e5"
+grayColor = "#868d95"
+chartCategoricalColors = ["#3987e5", "#d95926", "#3cc23c", "#9d7be6", "#e05a5a", "#f7c04f", "#868d95"]
+
+[theme.light.sidebar]
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f4f6f7"
+borderColor = "#d2d8dd"
+
+[theme.dark.sidebar]
+backgroundColor = "#202326"
+secondaryBackgroundColor = "#1b1d20"
+borderColor = "#373b40"

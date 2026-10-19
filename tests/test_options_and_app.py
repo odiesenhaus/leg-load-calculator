@@ -81,7 +81,7 @@ def app():
 
 def _apply(at, preset):
     at.sidebar.selectbox(key="preset_pick").select(preset).run()
-    next(b for b in at.sidebar.button if b.label == "Apply Preset").click().run()
+    next(b for b in at.sidebar.button if b.label == "Apply preset").click().run()
     assert not at.exception, [e.value for e in at.exception]
 
 
@@ -89,8 +89,13 @@ def _caption(at, startswith):
     return [c.value for c in at.sidebar.caption if c.value.startswith(startswith)]
 
 
-def test_app_loads_with_all_tabs_and_the_hardware_selector(app):
-    assert [t.label for t in app.tabs] == ["Pose", "3D View", "Actuators", "Link Loads", "Export", "Gait Cycle"]
+def test_app_loads_with_all_cards_and_the_hardware_selector(app):
+    assert [h.value for h in app.subheader] == ["Load summary", "Actuators", "Per-joint summary", "Link loads",
+                                                 "Gait cycle", "Hand check", "Export", "Conventions"]
+    assert app.segmented_control(key="view").value == "Side"
+    for view in ("Front", "3D", "Side"):                                                 # every stage view renders
+        app.segmented_control(key="view").set_value(view).run()
+        assert not app.exception
     assert app.sidebar.selectbox(key="opt_ankle_motor").options == ["X4-36-L", "X6-50-L"]
 
 
@@ -137,7 +142,7 @@ def test_app_warns_when_a_selected_preset_has_not_been_applied(app):
     _apply(app, "stand")
     app.sidebar.selectbox(key="preset_pick").select("stair_step_up").run()
     assert any(c.value.startswith("⚠") for c in app.sidebar.caption)                    # selected but not applied
-    next(b for b in app.sidebar.button if b.label == "Apply Preset").click().run()
+    next(b for b in app.sidebar.button if b.label == "Apply preset").click().run()
     assert not any(c.value.startswith("⚠") for c in app.sidebar.caption)
 
 
@@ -166,9 +171,9 @@ def test_app_read_only_mode_for_the_hosted_copy(monkeypatch, tmp_path):
     at = AppTest.from_file(APP, default_timeout=180)
     at.run()
     assert not at.exception
-    save = next(b for b in at.sidebar.button if b.label == "Save Current Pose as Preset")
+    save = next(b for b in at.sidebar.button if b.label == "Save current pose as preset")
     assert save.disabled
-    exp = next(b for b in at.button if b.label.startswith("Export Report"))
+    exp = next(b for b in at.button if b.label.startswith("Export report"))
     exp.click().run()
     assert not at.exception
     assert [d.label for d in at.get("download_button")][:2] == ["Download JSON", "Download CSV"]
