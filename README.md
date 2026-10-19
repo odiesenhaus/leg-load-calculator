@@ -47,7 +47,8 @@ leg/                physics only, no UI imports
   gait.py             keyframed stance phases: sampling, sweeps, per-actuator peak / RMS
   analysis.py         Inputs -> Results: runs A-E once and collects warnings
   report.py           JSON / CSV export          names.py   "hip_abduction" -> "Hip Abduction"
-app.py              Streamlit UI (inputs, tables, tabs)      viz.py   Plotly figures
+app.py              Streamlit UI (rail, stage, spec sheet, cards)   viz.py   Plotly figures (light / dark / auto palettes)
+.streamlit/config.toml  theme: fonts and the light + dark colours
 tests/              pytest: hand-checkable physics cases, config validation, gait, options, headless app tests
 tools/fingerprint.py  numerical fingerprint of the whole model (detects accidental physics changes)
 tools/ankle_bx_sweep.py   sweep of the ankle rod pickup position: lever travel, lever-rod angle, available torque / speed
@@ -60,23 +61,30 @@ REVIEW_NOTES.md     what to double-check, known conflicts in the inputs, what th
 
 * **Hardware** (top of the sidebar): choose the ankle motor (X4-36-L default, or X6-50-L). Ratings, rotor inertia and
   weight are swapped; geometry is not (the X6-50-L does not fit the current ankle layout; a caption says so).
-* **Pose**: pick a preset and press *Apply Preset*, or set the six joint angles with the sliders / number boxes (limits come
+* **Pose**: pick a preset and press *Apply preset*, or set the six joint angles with the sliders / number boxes (limits come
   from the config, a warning appears outside them). Pelvis pitch / roll tilt the whole leg frame (ground slope, torso lean).
 * **Foot Contact Load**: *fraction x robot weight* (0.5 even double support, 1 single support), a
   *custom* fraction, or a *manual* Fz; plus Fx, Fy, a foot moment and a centre-of-pressure (CoP) shift in the foot frame.
   The Support toggle only changes the default fraction. The weight includes the optional pelvis payload.
 * **Walking**: a row of buttons, one per keyframe of the stance phase. Choosing one sets the joint angles, ground
   force and CoP from that keyframe; the inputs they drive are disabled. *Follow Walking Cycle* off returns manual control.
-* **Apply Preset** sets the pose, support and vertical load and **clears Fx, Fy, the centre-of-pressure shift and the foot
+* **Apply preset** sets the pose, support and vertical load and **clears Fx, Fy, the centre-of-pressure shift and the foot
   moment** (a "Load in use" line under *Foot Contact Load* always states what is applied). A *Not applied yet* note appears
   if the selected preset has not been applied.
 * **Per-joint table**: *Own Share* is the motor load caused by that joint's torque alone. The two ankle joints share the two
-  ankle motors, so each row shows only its own demand; the true combined load of each motor is on the *Actuators* tab.
-* **Save Current Pose as Preset** appends a one-line preset (with an optional description, and the motion setting) to the
+  ankle motors, so each row shows only its own demand; the true combined load of each motor is in the *Actuators* card.
+* **Save current pose as preset** appends a one-line preset (with an optional description, and the motion setting) to the
   `presets:` section of the YAML, keeping all comments.
-* **Tabs**: *Pose* (stick figures + per-joint table), *3D View*, *Actuators* (utilisation bars, the ankle rod forces, plus a *hand check* that
-  reproduces the ground-reaction torques from `Fz x lever arm`), *Link Loads* (N, V, M, T along a link, stress, bearing
-  reactions; includes the ankle rods), *Export*, *Gait Cycle* (load vs stance phase, peak / RMS table).
+* **Layout** ("drafting desk"): the left rail holds every input. The header has a status pill (green: every motor within
+  its continuous rating; amber: over continuous or a safety factor under 2; red: over peak, safety factor under 1 or an
+  analysis error). The *stage* shows the leg (Side / Front / 3D) with one readout per motor; the *load summary* beside it
+  lists the busiest motor, the lowest safety factor, joint torques, the foot load, the ankle linkage and any flags. Below:
+  *Actuators* (utilisation bars, motor table, ankle rod forces), *Per-joint summary*, *Link loads* (N, V, M, T along a
+  link, stress, bearing reactions; includes the ankle rods), *Gait cycle* (load vs stance phase, peak / RMS table), *Hand
+  check* (reproduces the ground-reaction torques from `Fz x lever arm`), *Export* and *Conventions*.
+* **Light / dark**: both themes are defined in `.streamlit/config.toml`; switch in the app's settings menu. The cards'
+  CSS uses `light-dark()` and the figures use transparent backgrounds with Streamlit's chart theme, so both follow the
+  viewer's theme in the browser.
 
 ## 4. The model
 
