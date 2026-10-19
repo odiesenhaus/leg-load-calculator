@@ -47,7 +47,7 @@ def _lbl(x: str) -> str:
     return LABELS.get(x, pretty(x))
 
 
-st.set_page_config(page_title="Leg load calculator", page_icon=":material/precision_manufacturing:", layout="wide")
+st.set_page_config(page_title="Leg Load Calculator", page_icon=":material/precision_manufacturing:", layout="wide")
 ss = st.session_state
 viz.use_theme("auto")                  # figures: transparent, text / grid colours from Streamlit's light or dark theme
 
@@ -180,7 +180,7 @@ if base_cfg.actuator_options:
             sb.caption(_note)
 
 # ---- preset + pose ----------------------------------------------------------------------------------------------
-sb.html('<p class="eyebrow">Load case</p>')
+sb.html('<p class="eyebrow">Load Case</p>')
 sb.selectbox("Preset", list(cfg.presets), key="preset_pick", format_func=pretty)
 _picked = cfg.presets.get(ss.get("preset_pick", next(iter(cfg.presets))))
 if _picked is not None and _picked.description:
@@ -213,7 +213,7 @@ if G is not None:
             _number_changed(_i)
         sb.caption(f"Stance phase **{G.keys[key_idx].phase * 100:.0f}%** of {G.stance_time:g} s")
 
-sb.html('<p class="eyebrow">Joint angles</p>')
+sb.html('<p class="eyebrow">Joint Angles</p>')
 q_deg = np.zeros(N)
 for i, j in enumerate(cfg.joints):
     lo, hi = np.degrees(j.limits)
@@ -234,7 +234,7 @@ payload = sb.number_input("External payload at pelvis [kg]", 0.0, 500.0, 0.0, 0.
                                "so it reaches the leg only through the foot load.")
 
 # ---- foot contact load ------------------------------------------------------------------------------------------
-sb.html('<p class="eyebrow">Foot contact load</p>')
+sb.html('<p class="eyebrow">Foot Contact Load</p>')
 sb.radio("Support", ["double", "single"], key="support", horizontal=True, on_change=_support_changed,
          format_func=pretty,
          help="Only changes the default load fraction (config: double_support_fraction / single_support_fraction).")
@@ -285,7 +285,7 @@ sb.caption("Load in use: **vertical " + f"{fz:.0f} N**" + (" + " + ", ".join(_ex
            " only, at the point under the ankle (no horizontal force, CoP offset or moment)"))
 
 # ---- save the current pose as a preset --------------------------------------------------------------------------
-sb.html('<p class="eyebrow">Save pose</p>')
+sb.html('<p class="eyebrow">Save Pose</p>')
 if not LOCAL:
     sb.caption("Saving presets is turned off in the shared web version (it would change the app for every visitor). "
                "Run the app on your own computer to save presets to leg_config.yaml.")
@@ -419,7 +419,7 @@ else:
 
 with st.container(horizontal=True, vertical_alignment="bottom", gap="medium"):
     with st.container():
-        st.title("Leg load calculator")
+        st.title("Leg Load Calculator")
         st.html('<p class="sub">One humanoid leg, held still. Set a pose and a foot load; the calculator gives each motor\'s '
                 'torque against its rating, the loads in every link and bearing, and the ankle rod forces.</p>')
     _pills = pill(*status)
@@ -514,7 +514,7 @@ def _dd(text: str, kind: str = "") -> str:
 
 
 with sheet_col, st.container(border=True, key="card_sheet"):
-    st.subheader("Load summary")
+    st.subheader("Load Summary")
     boxes = ""
     if worst is not None:
         k_ = CLS[worst.status]
@@ -534,17 +534,17 @@ with sheet_col, st.container(border=True, key="card_sheet"):
         kind = "" if sh is None else ("crit" if sh.status == "over_peak" else "warn" if sh.exceeds_continuous else "")
         rows_ += (f"<dt>{html.escape(pretty(j.name))}</dt>"
                   + _dd(f"{res.static.tau[i]:+.1f} N·m" + ("" if sh is None else f" · {sh.util_cont * 100:.0f} %"), kind))
-    parts.append(f'<p class="spech">Joint torques · own share of continuous</p><dl class="spec">{rows_}</dl>')
+    parts.append(f'<p class="spech">Joint Torques · Own Share of Continuous</p><dl class="spec">{rows_}</dl>')
     F_ = inp.load.force
     load_rows = (f"<dt>Vertical</dt>{_dd(f'{F_[2]:.0f} N · {F_[2] / weight:.2f} BW')}"
                  f"<dt>Fore-aft / lateral</dt>{_dd(f'{F_[0]:+.0f} / {F_[1]:+.0f} N')}"
                  f"<dt>Centre of pressure</dt>{_dd(f'{cop_x:+.0f}, {cop_y:+.0f} mm')}")
-    parts.append(f'<p class="spech">Foot load</p><dl class="spec">{load_rows}</dl>')
+    parts.append(f'<p class="spech">Foot Load</p><dl class="spec">{load_rows}</dl>')
     if res.rods:
         rod_rows = "".join(f"<dt>{html.escape(short(rd.name))} rod</dt>"
                            + _dd(f"{rd.force:+.0f} N {'tension' if rd.force > 0 else 'comp.'}") for rd in res.rods)
         rod_rows += f"<dt>J5 bearing</dt>{_dd(f'{np.linalg.norm(res.flanges[4].force_local):.0f} N')}"
-        parts.append(f'<p class="spech">Ankle linkage</p><dl class="spec">{rod_rows}</dl>')
+        parts.append(f'<p class="spech">Ankle Linkage</p><dl class="spec">{rod_rows}</dl>')
     if res.warnings:
         items = ""
         for w in res.warnings:
@@ -578,7 +578,7 @@ with st.container(border=True, key="card_act"):
                    "rod line). Rods are ideal two-force members: check the rod-end bearings and buckling against these.")
 
 with st.container(border=True, key="card_joints"):
-    st.subheader("Per-joint summary")
+    st.subheader("Per-Joint Summary")
     st.caption("Motor cells: amber over continuous, red over peak. Safety-factor cells: amber under 2, red under 1. "
                "*Own share* is the motor load from that joint's torque alone; the two ankle joints share the two ankle "
                "motors, so each motor's combined load is in the Actuators card.")
@@ -590,7 +590,7 @@ with st.container(border=True, key="card_joints"):
                  hide_index=True, width="stretch")
 
 with st.container(border=True, key="card_links"):
-    st.subheader("Link loads")
+    st.subheader("Link Loads")
     if res.rods is None:
         st.warning("**Ankle rods not included.** The rod forces could not be computed at this pose, so the lower shank, "
                    "ankle cross, foot and J5 / J6 bearing loads below use the plain cut method and are not valid.")
@@ -612,7 +612,7 @@ with st.container(border=True, key="card_links"):
     st.caption("Beam frame: x along the link, y from the section's y_ref, z = x × y. N > 0 is tension. Stress = "
                "Kt(|N|/A + |My|c_z/I_y + |Mz|c_y/I_z); shear and torsion are reported but not in the stress. Unticked "
                "rows are extra stations at lumped masses and section changes, so the true peak is not missed.")
-    st.markdown("**Joint bearing / output-flange reactions** (joint frame)")
+    st.markdown("**Joint Bearing / Output-Flange Reactions** (joint frame)")
     st.dataframe(pd.DataFrame([{
         "Joint": pretty(f.joint), "Fx": f.force_local[0], "Fy": f.force_local[1], "Fz": f.force_local[2],
         "Axial Thrust [N]": f.axial_force, "Radial [N]": f.radial_force, "Tilt Moment [N·m]": f.tilt_moment,
@@ -628,7 +628,7 @@ def _sweep(_cfg, gait_name: str, hardware: tuple, mtime: float, payload_kg: floa
 
 if cfg.gaits:
     with st.container(border=True, key="card_gait"):
-        st.subheader("Gait cycle")
+        st.subheader("Gait Cycle")
         _gnames = list(cfg.gaits)
         _gsel = st.selectbox("Gait", _gnames, format_func=pretty, key="gait_pick")
         GS = cfg.gaits[_gsel]
@@ -656,7 +656,7 @@ if cfg.gaits:
 
 band_l, band_r = st.columns(2, gap="medium")
 with band_l, st.container(border=True, key="card_check"):
-    st.subheader("Hand check")
+    st.subheader("Hand Check")
     st.caption("A joint torque from the ground force is about the vertical force times the forward distance from the "
                "joint to where the force acts (plus the fore-aft force times the height). The two right-hand columns "
                "should agree; any difference is pelvis tilt or hip abduction / rotation. The tool then adds the leg's "

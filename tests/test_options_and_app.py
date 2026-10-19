@@ -90,8 +90,8 @@ def _caption(at, startswith):
 
 
 def test_app_loads_with_all_cards_and_the_hardware_selector(app):
-    assert [h.value for h in app.subheader] == ["Load summary", "Actuators", "Per-joint summary", "Link loads",
-                                                 "Gait cycle", "Hand check", "Export", "Conventions"]
+    assert [h.value for h in app.subheader] == ["Load Summary", "Actuators", "Per-Joint Summary", "Link Loads",
+                                                 "Gait Cycle", "Hand Check", "Export", "Conventions"]
     assert app.segmented_control(key="view").value == "Side"
     for view in ("Front", "3D", "Side"):                                                 # every stage view renders
         app.segmented_control(key="view").set_value(view).run()

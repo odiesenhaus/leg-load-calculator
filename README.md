@@ -77,11 +77,11 @@ REVIEW_NOTES.md     what to double-check, known conflicts in the inputs, what th
   `presets:` section of the YAML, keeping all comments.
 * **Layout** ("drafting desk"): the left rail holds every input. The header has a status pill (green: every motor within
   its continuous rating; amber: over continuous or a safety factor under 2; red: over peak, safety factor under 1 or an
-  analysis error). The *stage* shows the leg (Side / Front / 3D) with one readout per motor; the *load summary* beside it
+  analysis error). The *stage* shows the leg (Side / Front / 3D) with one readout per motor; the *Load Summary* beside it
   lists the busiest motor, the lowest safety factor, joint torques, the foot load, the ankle linkage and any flags. Below:
-  *Actuators* (utilisation bars, motor table, ankle rod forces), *Per-joint summary*, *Link loads* (N, V, M, T along a
-  link, stress, bearing reactions; includes the ankle rods), *Gait cycle* (load vs stance phase, peak / RMS table), *Hand
-  check* (reproduces the ground-reaction torques from `Fz x lever arm`), *Export* and *Conventions*.
+  *Actuators* (utilisation bars, motor table, ankle rod forces), *Per-Joint Summary*, *Link Loads* (N, V, M, T along a
+  link, stress, bearing reactions; includes the ankle rods), *Gait Cycle* (load vs stance phase, peak / RMS table), *Hand
+  Check* (reproduces the ground-reaction torques from `Fz x lever arm`), *Export* and *Conventions*.
 * **Light / dark**: both themes are defined in `.streamlit/config.toml`; switch in the app's settings menu. The cards'
   CSS uses `light-dark()` and the figures use transparent backgrounds with Streamlit's chart theme, so both follow the
   viewer's theme in the browser.
