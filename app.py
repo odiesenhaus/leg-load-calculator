@@ -340,11 +340,14 @@ st.html("""<style>
 .pill.good svg{color:var(--good)} .pill.good .t{color:var(--good-ink)}
 .pill.warn svg{color:var(--warn)} .pill.warn .t{color:var(--warn-ink)}
 .pill.crit svg{color:var(--crit)} .pill.crit .t{color:var(--crit-ink)}
-.readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px}
-.ro{display:flex;align-items:baseline;gap:10px;padding:8px 10px;border-radius:6px;background:var(--sunken);font-size:13.5px}
-.ro .k{display:flex;align-items:center;gap:6px;color:var(--ink-2);min-width:92px}
-.ro .v{font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:500;color:var(--ink)}
-.ro .x{font-family:'JetBrains Mono',monospace;color:var(--ink-3);font-size:12px;margin-left:auto;white-space:nowrap}
+.readout{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
+.ro{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;gap:2px 10px;padding:8px 10px;
+  border-radius:6px;background:var(--sunken);font-size:13.5px;min-width:0;overflow:hidden}
+.ro .k{display:flex;align-items:center;gap:6px;color:var(--ink-2);min-width:0;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+.ro .v{font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:500;color:var(--ink);white-space:nowrap}
+.ro .v small{font-size:12px;color:var(--ink-3);font-weight:400;margin-left:3px}
+.ro .x{grid-column:1/-1;font-family:'JetBrains Mono',monospace;color:var(--ink-3);font-size:12px;overflow-wrap:anywhere}
 .dot{width:9px;height:9px;border-radius:50%;flex:none;display:inline-block}
 .dot.good{background:var(--good)} .dot.warn{background:var(--warn)} .dot.crit{background:var(--crit)}
 .legend{display:flex;gap:14px;font-size:13px;color:var(--ink-2);flex-wrap:wrap}
@@ -500,8 +503,8 @@ with stage_col, st.container(border=True, key="card_stage"):
     if acts:
         _ro = "".join(
             f'<div class="ro"><span class="k"><i class="dot {CLS[a.status]}"></i>'
-            f'{html.escape(short(a.name))}</span><span class="v">{a.value:+.1f}</span>'
-            f'<span class="x">N·m · {a.util_peak * 100:.0f} % pk · {a.util_cont * 100:.0f} % cont</span></div>'
+            f'{html.escape(short(a.name))}</span><span class="v">{a.value:+.1f}<small>N·m</small></span>'
+            f'<span class="x">{a.util_peak * 100:.0f} % pk · {a.util_cont * 100:.0f} % cont</span></div>'
             for a in acts)
         st.html(f'<div class="readout">{_ro}</div>')
 
